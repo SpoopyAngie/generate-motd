@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+# Reset
+Color_Off="\033[0m"       # Text Reset
+
+# Regular Colors
+Black="\033[0;30m"        # Black
+Red="\033[0;31m"          # Red
+Green="\033[0;32m"        # Green
+Yellow="\033[0;33m"       # Yellow
+Blue="\033[0;34m"         # Blue
+Purple="\033[0;35m"       # Purple
+Cyan="\033[0;36m"         # Cyan
+White="\033[0;37m"        # White
+
+# Bold
+BBlack="\033[1;30m"       # Black
+BRed="\033[1;31m"         # Red
+BGreen="\033[1;32m"       # Green
+BYellow="\033[1;33m"      # Yellow
+BBlue="\033[1;34m"        # Blue
+BPurple="\033[1;35m"      # Purple
+BCyan="\033[1;36m"        # Cyan
+BWhite="\033[1;37m"       # White
+
+# Collect information
+KERNEL=`uname -r`
+ARCH=`uname -m`
+LOCKDOWN=`cat /sys/kernel/security/lockdown | grep -P "\[[^\]]*\]" -o | sed 's/[][]//g'`
+SECUREBOOT=`sbctl status | grep "Secure Boot" | awk '{print $4}'`
+CPU=`lscpu | grep 'Model name:' | awk '{for (i=3; i<=NF; i++) printf("%s ",$i)} END {print""}'`
+CPU_TEMP=`sensors | grep 'Tctl' | awk '{print $2}'`
+GPU=`vulkaninfo | grep 'deviceName' |  awk '{for (i=3; i<=NF; i++) printf("%s ",$i)} END {print""}'`
+GPU_TEMP=`sensors | grep 'edge' | awk '{print $2}'`
+MEMORY1=`free -t -m | grep "Mem" | awk '{print $3" MB";}'`
+MEMORY2=`free -t -m | grep "Mem" | awk '{print $2" MB";}'`
+MEMPERCENT=`free | awk '/Mem/{printf("%.2f% (Used) "), $3/$2*100}'`
+DETECTDISK1=`mount -v | grep -F 'on / ' | sed -n 's_^\(/dev/[^ ]*\) .*$_\1_p'`
+DISC1=`df -h | grep $DETECTDISK1 | awk '{print $5 }'`
+DETECTDISK2=`mount -v | grep -F 'on /home ' | sed -n 's_^\(/dev/[^ ]*\) .*$_\1_p'`
+DISC2=`df -h | grep $DETECTDISK2 | awk '{print $5 C}'`
+SERVICES_RUNNING=`systemctl | grep running | wc -l`
+FAILED_SERVICES=`systemctl status | grep Failed | head -n1 | awk {'print $2'}`
+NET_INTERFACE=`ip -o link show | grep "state UP" | sed "s|:||g" | awk {'print $2'} | head -n 1`
+IP_ADDRESS=`ip -4 -o address show $NET_INTERFACE | grep inet | sed "s|:||g" | awk {'print $4'}`
+LOCAL_TIME=`timedatectl status | grep "Local time" | sed "s|\s* Local time: ||g"`
+NTP_SERVICE_STATUS=`timedatectl status | grep "NTP service" | sed "s|\s* NTP service: ||g" | awk {'print $1'}`
+TIME_SYNCED=`timedatectl status | grep "clock synchronized" | sed "s|.* clock synchronized: ||g" | awk {'print $1'}`
+TIME_ZONE=`timedatectl status | grep "Time zone" | sed "s|.* Time zone: ||g" | awk {'print $1'}`
+
+if [ "$TIME_SYNCED" == "yes" ]; then 
+  TIME_SYNC_STATUS="Synchronised"
+else 
+  TIME_SYNC_STATUS="NOT Synchronised"
+fi
+
+#System uptime
+uptime=`cat /proc/uptime | cut -f1 -d.`
+upDays=$((uptime/60/60/24))
+upHours=$((uptime/60/60%24))
+upMins=$((uptime/60%60))
+upSecs=$((uptime%60))
+
+#System load
+LOAD1=`cat /proc/loadavg | awk {'print $1'}`
+LOAD5=`cat /proc/loadavg | awk {'print $2'}`
+LOAD15=`cat /proc/loadavg | awk {'print $3'}`
+
+echo -e "$Color_Off╭─[$BGreen Kernel $Color_Off]"
+echo -e "$Color_Off│ $BCyan Version     $Green:$Color_Off $KERNEL ($ARCH)"
+echo -e "$Color_Off│ $BCyan Secure Boot $Green:$Color_Off $SECUREBOOT"
+echo -e "$Color_Off│ $BCyan Lockdown    $Green:$Color_Off ${LOCKDOWN^}"
+echo -e "$Color_Off│ $BCyan Uptime      $Green:$Color_Off $upDays days $upHours hours $upMins minutes $upSecs seconds"
+echo -e "$Color_Off╰─"
+echo -e "$Color_Off╭─[$BGreen Hardware $Color_Off]"
+echo -e "$Color_Off│ $BCyan CPU $Green:$Color_Off $CPU($CPU_TEMP)"
+echo -e "$Color_Off│ $BCyan GPU $Green:$Color_Off $GPU($GPU_TEMP)"
+echo -e "$Color_Off╰─"
+echo -e "$Color_Off╭─[$BGreen System $Color_Off]"
+echo -e "$Color_Off│ $BCyan IP Address   $Green:$Color_Off $IP_ADDRESS ($NET_INTERFACE)"
+echo -e "$Color_Off│ $BCyan Memory       $Green:$Color_Off $MEMORY1 / $MEMORY2 - $MEMPERCENT"
+echo -e "$Color_Off│ $BCyan Root (/)     $Green:$Color_Off $DISC1 (Used)"
+echo -e "$Color_Off│ $BCyan Home (/home) $Green:$Color_Off $DISC2 (Used)"
+echo -e "$Color_Off│ $BCyan Services     $Green:$Color_Off $SERVICES_RUNNING running / $FAILED_SERVICES failed"
+echo -e "$Color_Off│ $BCyan Load Avg     $Green:$Color_Off $LOAD1 | $LOAD5 | $LOAD15"
+echo -e "$Color_Off│ $BCyan Users Active $Green:$Color_Off `users | wc -w` users logged in"
+echo -e "$Color_Off╰─"
